@@ -62,7 +62,13 @@ def clip(req: ClipRequest, authorization: Optional[str] = Header(default=None)):
             "--remux-video", "mp4",
         ]
         if os.path.exists(COOKIES_PATH):
-            cmd += ["--cookies", COOKIES_PATH]
+            # yt-dlp rewrites the cookie jar on close(), but Render's Secret
+            # Files mount is read-only -- pointing --cookies at it directly
+            # makes yt-dlp exit non-zero on every request. Give it a writable
+            # copy instead.
+            writable_cookies = Path(tmp_dir) / "cookies.txt"
+            shutil.copyfile(COOKIES_PATH, writable_cookies)
+            cmd += ["--cookies", str(writable_cookies)]
         cmd += ["-o", out_template, req.url]
 
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
