@@ -6,10 +6,21 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 app = FastAPI()
+
+# Clients call this from Obsidian's renderer via plain fetch() (see the
+# QuickAdd script), which is subject to normal browser CORS rules. Wide open
+# is fine here since the endpoint is already gated by AUTH_TOKEN below.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 
