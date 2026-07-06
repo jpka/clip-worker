@@ -24,6 +24,11 @@ app.add_middleware(
 
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 
+# Render "Secret Files" are mounted under /etc/secrets/<filename>. Export
+# cookies.txt from a real, logged-in browser session (e.g. the "Get
+# cookies.txt LOCALLY" extension) and add it there -- see README.md.
+COOKIES_PATH = os.environ.get("YTDLP_COOKIES_PATH", "/etc/secrets/cookies.txt")
+
 
 class ClipRequest(BaseModel):
     url: str
@@ -40,7 +45,7 @@ def check_auth(authorization: Optional[str]):
 
 @app.get("/health")
 def health():
-    return {"ok": True}
+    return {"ok": True, "cookies_configured": os.path.exists(COOKIES_PATH)}
 
 
 @app.post("/clip")
@@ -55,9 +60,11 @@ def clip(req: ClipRequest, authorization: Optional[str] = Header(default=None)):
             "--download-sections", f"*{req.start}-{req.end}",
             "--force-keyframes-at-cuts",
             "--remux-video", "mp4",
-            "-o", out_template,
-            req.url,
         ]
+        if os.path.exists(COOKIES_PATH):
+            cmd += ["--cookies", COOKIES_PATH]
+        cmd += ["-o", out_template, req.url]
+
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         if result.returncode != 0:
             raise HTTPException(500, f"yt-dlp failed: {result.stderr[-2000:]}")
